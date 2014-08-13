@@ -17,11 +17,12 @@ class CDEK(object):
     ORDER_PRINT_URL = INTEGRATOR_URL + '/orders_print.php'
     DELIVERY_POINTS_URL = INTEGRATOR_URL + '/pvzlist.php'
 
-    def __init__(self, login=None, password=None):
+    def __init__(self, login, password):
         self._login = login
         self._password = password
 
-    def _exec_request(self, url, data, method='GET'):
+    @classmethod
+    def _exec_request(cls, url, data, method='GET'):
         if method == 'GET':
             request = urllib2.Request(url + '?' + urlencode(data))
         elif method == 'POST':
@@ -33,13 +34,45 @@ class CDEK(object):
 
         return response
 
-    def _parse_xml(self, data):
+    @classmethod
+    def _parse_xml(cls, data):
         try:
             xml = etree.fromstring(data)
         except etree.XMLSyntaxError:
             pass
         else:
             return xml
+
+    @classmethod
+    def get_shipping_cost(cls, sender_city_id, receiver_city_id, tariffs, goods):
+        """
+        Возвращает информацию о стоимости и сроках доставки
+        :param tariffs: список тарифов
+        :param sender_city_id: ID города отправителя по базе СДЭК
+        :param receiver_city_id: ID города получателя по базе СДЭК
+        :param goods: список товаров
+        """
+        date = datetime.datetime.now().isoformat()
+        params = {
+            'version': '1.0',
+            'dateExecute': datetime.date.today().isoformat(),
+            'senderCityId': sender_city_id,
+            'receiverCityId': receiver_city_id,
+            'tariffList': [{'priority': -i, 'id': tariff} for i, tariff in enumerate(tariffs, 1)],
+            'goods': goods,
+            'date': date,
+        }
+
+        return json.loads(cls._exec_request(cls.CALCULATOR_URL, json.dumps(params), 'POST'))
+
+    @classmethod
+    def get_delivery_points(cls, city_id=None):
+        """
+        Возвращает списков пунктов самовывоза для указанного города, либо для всех если город не указан
+        :param city_id: ID города по базе СДЭК
+        """
+        response = cls._exec_request(cls.DELIVERY_POINTS_URL, {'cityid': city_id} if city_id else {})
+        return cls._parse_xml(response)
 
     def _exec_xml_request(self, url, xml_element, date=None, method='POST'):
         date = (date or datetime.datetime.now()).isoformat()
@@ -54,59 +87,36 @@ class CDEK(object):
     def _make_secure(self, date):
         return hashlib.md5('%s&%s' % (date, self._password)).hexdigest()
 
-    def get_shipping_cost(self, sender_city_id, receiver_city_id, tariffs, goods):
-        """
-        Возвращает информацию о стоимости и сроках доставки
-        :param tariffs: список тарифов
-        :param sender_city_id: ID города по базе СДЭК
-        :param receiver_city_id: ID города по базе СДЭК
-        :param goods: список товаров
-        """
+    def get_orders_info(self, orders):
+        info_request_element = etree.Element('InfoRequest')
+        for dispatch_number in orders:
+            etree.SubElement(info_request_element, 'Order', DispatchNumber=dispatch_number)
+
+        return self._exec_xml_request(self.ORDER_INFO_URL, info_request_element)
+
+    def get_orders_statuses(cls, orders, show_history=True):
+        status_report_element = etree.Element('StatusReport', ShowHistory=str(int(show_history)))
+        for dispatch_number in orders:
+            etree.SubElement(status_report_element, 'Order', DispatchNumber=dispatch_number)
+
+        return cls._exec_xml_request(cls.ORDER_STATUS_URL, status_report_element)
+
+
+    def delete_orders(self, orders):
+        delete_request_element = etree.Element('DeleteRequest', OrderCount=str(len(orders)))
+        for dispatch_number in orders:
+            etree.SubElement(delete_request_element, 'Order', DispatchNumber=dispatch_number)
+
+        return self._exec_xml_request(self.DELETE_ORDER_URL, delete_request_element)
+
+    def get_orders_print(self, orders, count=1):
         date = datetime.datetime.now().isoformat()
-        params = {
-            'version': '1.0',
-            'dateExecute': datetime.date.today().isoformat(),
-            'senderCityId': sender_city_id,
-            'receiverCityId': receiver_city_id,
-            'tariffList': [{'priority': -i, 'id': tariff} for i, tariff in enumerate(tariffs, 1)],
-            'goods': goods,
-            'date': date,
-        }
-        if self._login:
-            params.update({
-                'account': self._login,
-                'secure': self._make_secure(date)
-            })
+        orders_print_element = etree.Element('OrdersPrint', OrderCount=str(len(orders)), CopyCount=str(count), Date=date, Account=self._login, Secure=self._make_secure(date))
 
-        response = json.loads(self._exec_request(self.CALCULATOR_URL, json.dumps(params), 'POST'))
+        for dispatch_number in orders:
+            etree.SubElement(orders_print_element, 'Order', DispatchNumber=dispatch_number)
 
-        return response
+        request = '<?xml version="1.0" encoding="UTF-8" ?>' + etree.tostring(orders_print_element, encoding="UTF-8")
+        response = self._exec_request(self.ORDER_PRINT_URL, 'xml_request=' + request, method='POST')
 
-    def get_delivery_points(self, city_id=None):
-        """
-        Возвращает списков пунктов самовывоза для указанного города, либо для всех если город не указан
-        :param city_id: ID города по базе СДЭК
-        """
-        response = self._exec_request(self.DELIVERY_POINTS_URL, {'cityid': city_id} if city_id else {})
-        xml = self._parse_xml(response)
-
-        points = {}
-        if xml is not None:
-            for point in xml.xpath('//Pvz'):
-                weight_limit = point.xpath('WeightLimit')
-                points[point.attrib.get('Code')] = {
-                    'name': point.attrib.get('Name'),
-                    'code': point.attrib.get('Code'),
-                    'address': point.attrib.get('Address', ''),
-                    'phone': point.attrib.get('Phone'),
-                    'worktime': point.attrib.get('WorkTime'),
-                    'note': point.attrib.get('Note', ''),
-                    'city_id': point.attrib.get('CityCode'),
-                    'city_name': point.attrib.get('City'),
-                    'coord_x': point.attrib.get('coordX'),
-                    'coord_y': point.attrib.get('coordY'),
-                    'weight_limit_min': weight_limit[0].attrib.get('WeightMin') if weight_limit else 0,
-                    'weight_limit_max': weight_limit[0].attrib.get('WeightMax') if weight_limit else 0,
-                }
-
-        return points
+        return response if not response.startswith('<?xml') else None
