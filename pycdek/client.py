@@ -56,7 +56,7 @@ class AbstractOrder(object):
         """ ID тарифа доставки """
 
     @abstractmethod
-    def get_delivery_price(self):
+    def get_shipping_price(self):
         """ Стоимость доставки """
 
     def get_comment(self):
@@ -177,7 +177,7 @@ class Client(object):
         order_element.attrib['RecCityCode'] = str(order.get_recipient_city_id())
         order_element.attrib['RecipientName'] = order.get_recipient_name()
         order_element.attrib['TariffTypeCode'] = str(order.get_shipping_tariff())
-        order_element.attrib['DeliveryRecipientCost'] = str(order.get_delivery_price())
+        order_element.attrib['DeliveryRecipientCost'] = str(order.get_shipping_price())
         order_element.attrib['Phone'] = order.get_recipient_phone()
         order_element.attrib['Comment'] = order.get_comment()
 
