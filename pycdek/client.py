@@ -97,6 +97,7 @@ class Client(object):
     ORDER_INFO_URL = INTEGRATOR_URL + '/info_report.php'
     ORDER_PRINT_URL = INTEGRATOR_URL + '/orders_print.php'
     DELIVERY_POINTS_URL = INTEGRATOR_URL + '/pvzlist.php'
+    CALL_COURIES_URL = INTEGRATOR_URL + '/call_courier.php'
 
     def __init__(self, login, password):
         self._login = login
@@ -236,3 +237,33 @@ class Client(object):
         response = self._exec_request(self.ORDER_PRINT_URL, 'xml_request=' + request, method='POST')
 
         return response if not response.startswith('<?xml') else None
+
+    def call_courier(self, date, time_begin, time_end, sender_city_id, sender_phone, sender_name, weight, address_street, address_house, address_flat, comment='', lunch_begin=None, lunch_end=None):
+        """
+        Вызов курьера
+        :param date: дата ожидания курьера
+        :param time_begin: время начала ожидания
+        :param time_end: время окончания ожидания
+        :param sender_city_id: ID города отправителя по базе СДЭК
+        :param sender_phone: телефон оправителя
+        :param sender_name: ФИО оправителя
+        :param weight: общий вес в граммах
+        :param comment: комментарий
+        :param lunch_begin: время начала обеда
+        :param lunch_end: время окончания обеда
+        """
+        call_courier_element = etree.Element('CallCourier', CallCount='1')
+        call_element = etree.SubElement(call_courier_element, 'Call', Date=date.isoformat(), TimeBeg=time_begin.isoformat(), TimeEnd=time_end.isoformat())
+        call_element.attrib['SendCityCode'] = str(sender_city_id)
+        call_element.attrib['SendPhone'] = sender_phone
+        call_element.attrib['SenderName'] = sender_name
+        call_element.attrib['Weight'] = str(weight)
+        call_element.attrib['Comment'] = comment
+        if lunch_begin:
+            call_element.attrib['LunchBeg'] = lunch_begin.isoformat()
+        if lunch_end:
+            call_element.attrib['LunchEnd'] = lunch_end.isoformat()
+
+        etree.SubElement(call_element, 'Address', Street=address_street, House=str(address_house), Flat=str(address_flat))
+        
+        return self._exec_xml_request(self.CALL_COURIES_URL, call_courier_element)
