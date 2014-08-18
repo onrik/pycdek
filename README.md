@@ -1,4 +1,4 @@
-##CDEK
+##PyCDEK
 Библиотека для работы с API транспортной компании [СДЭК](http://cdek.ru/).
 
 База городов, список тарифов и докуентация API доступна по ссылке: http://www.edostavka.ru/website/edostavka/upload/custom/files/CDEK_integrator.zip
