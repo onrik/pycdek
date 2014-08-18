@@ -170,6 +170,10 @@ class Client(object):
         return hashlib.md5('%s&%s' % (date, self._password)).hexdigest()
 
     def create_order(self, order):
+        """
+        Создать заказ
+        :param order: экземпляр класса AbstractOrder
+        """
         delivery_request_element = etree.Element('DeliveryRequest', Number=str(order.get_number()), OrderCount='1')
 
         order_element = etree.SubElement(delivery_request_element, 'Order')
@@ -207,12 +211,20 @@ class Client(object):
         return self._exec_xml_request(self.CREATE_ORDER_URL, delivery_request_element)
 
     def delete_order(self, order):
+        """
+        Удалить заказ
+        :param order: экземпляр класса AbstractOrder
+        """
         delete_request_element = etree.Element('DeleteRequest', Number=str(order.get_number()), OrderCount='1')
         etree.SubElement(delete_request_element, 'Order', Number=str(order.get_number()))
 
         return self._exec_xml_request(self.DELETE_ORDER_URL, delete_request_element)
 
     def get_orders_info(self, orders_dispatch_numbers):
+        """
+        Информация по заказам
+        :param orders_dispatch_numbers: список номеров отправлений СДЭК
+        """
         info_request_element = etree.Element('InfoRequest')
         for dispatch_number in orders_dispatch_numbers:
             etree.SubElement(info_request_element, 'Order', DispatchNumber=dispatch_number)
@@ -220,6 +232,11 @@ class Client(object):
         return self._exec_xml_request(self.ORDER_INFO_URL, info_request_element)
 
     def get_orders_statuses(self, orders_dispatch_numbers, show_history=True):
+        """
+        Статусы заказов
+        :param orders_dispatch_numbers: список номеров отправлений СДЭК
+        :param show_history: получать историю статусов
+        """
         status_report_element = etree.Element('StatusReport', ShowHistory=str(int(show_history)))
         for dispatch_number in orders_dispatch_numbers:
             etree.SubElement(status_report_element, 'Order', DispatchNumber=dispatch_number)
@@ -227,6 +244,11 @@ class Client(object):
         return self._exec_xml_request(self.ORDER_STATUS_URL, status_report_element)
 
     def get_orders_print(self, orders_dispatch_numbers, count=1):
+        """
+        Печатная форма квитанции к заказу
+        :param orders_dispatch_numbers: список номеров отправлений СДЭК
+        :param count: количество копий
+        """
         date = datetime.datetime.now().isoformat()
         orders_print_element = etree.Element('OrdersPrint', OrderCount=str(len(orders_dispatch_numbers)), CopyCount=str(count), Date=date, Account=self._login, Secure=self._make_secure(date))
 
@@ -265,5 +287,5 @@ class Client(object):
             call_element.attrib['LunchEnd'] = lunch_end.isoformat()
 
         etree.SubElement(call_element, 'Address', Street=address_street, House=str(address_house), Flat=str(address_flat))
-        
+
         return self._exec_xml_request(self.CALL_COURIES_URL, call_courier_element)
