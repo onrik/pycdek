@@ -1,6 +1,3 @@
-from __future__ import absolute_import
-from .client import AbstractOrder, AbstractOrderLine, Client
-
 VERSION = (0, 1)
 
 
