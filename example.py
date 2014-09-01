@@ -6,7 +6,6 @@ from pycdek.client import AbstractOrder, AbstractOrderLine
 
 class Product(models.Model):
     title = models.CharField('Название', max_length=255)
-    upc = models.CharField('Артикул', max_length=255)
     weight = models.PositiveIntegerField('Вес, гр.')
     price = models.DecimalField('Цена', max_digits=12, decimal_places=2)
 
@@ -69,7 +68,7 @@ class OrderLine(AbstractOrderLine, models.Model):
         return self.product.title
 
     def get_product_upc(self):
-        return self.product.upc
+        return self.product.id
 
     def get_product_weight(self):
         return self.product.weight
@@ -79,3 +78,6 @@ class OrderLine(AbstractOrderLine, models.Model):
 
     def get_product_price(self):
         return self.product.price
+
+    def get_product_payment(self):
+        return self.product.price  # оплата при получении
