@@ -87,6 +87,10 @@ class AbstractOrderLine(object):
     def get_product_price(self):
         """ Цена за единицу товара """
 
+    @abstractmethod
+    def get_product_payment(self):
+        """ Цена за единицу товара, которую клиент должен оплатить при получении """
+
 
 class Client(object):
     INTEGRATOR_URL = 'http://gw.edostavka.ru:11443'
@@ -200,9 +204,9 @@ class Client(object):
         for product in order.get_products():
             item_element = etree.SubElement(package_element, 'Item', Amount=str(product.get_quantity()))
             item_element.attrib['Weight'] = str(product.get_product_weight())
-            item_element.attrib['WareKey'] = product.get_product_upc()[:30]
+            item_element.attrib['WareKey'] = str(product.get_product_upc())[:30]
             item_element.attrib['Cost'] = str(product.get_product_price())
-            item_element.attrib['Payment'] = str(product.get_product_price())
+            item_element.attrib['Payment'] = str(product.get_product_payment())
 
             total_weight += product.get_product_weight()
 
