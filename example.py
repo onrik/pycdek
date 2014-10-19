@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from django.db import models
-from pycdek.client import AbstractOrder, AbstractOrderLine
+from pycdek.client import AbstractOrder, AbstractOrderLine, Client
 
 
 class Product(models.Model):
@@ -11,6 +11,7 @@ class Product(models.Model):
 
 
 class Order(AbstractOrder, models.Model):
+    get_sender_city_id = 44  # Если отправляем всегда из Москвы
     recipient_name = models.CharField('Имя получателя', max_length=100)
     recipient_phone = models.CharField('Телефон', max_length=20)
     recipient_city_id = models.PositiveIntegerField()
@@ -18,9 +19,10 @@ class Order(AbstractOrder, models.Model):
     recipient_address_house = models.PositiveIntegerField('Номер дома', max_length=100, null=True, blank=True)
     recipient_address_flat = models.PositiveIntegerField('Номер квартиры', max_length=100, null=True, blank=True)
     pvz_code = models.CharField('Код пункта самовывоза', max_length=10, null=True, blank=True)
-    dispatch_number = models.CharField('Номер отправления СДЭК', max_length=100, null=True, blank=True)
     shipping_tariff = models.PositiveIntegerField('Тариф доставки')
-    shipping_price = models.DecimalField('Стоимость доставки', max_digits=12, decimal_places=2)
+    shipping_price = models.DecimalField('Стоимость доставки', max_digits=12, decimal_places=2, default=0)
+    comment = models.TextField('Комментарий', blank=True)
+    is_paid = models.BooleanField('Заказ оплачен', default=False)
 
     def get_number(self):
         return self.id
@@ -28,35 +30,8 @@ class Order(AbstractOrder, models.Model):
     def get_products(self):
         return self.lines.all()
 
-    def get_sender_city_id(self):
-        return 44  # Если отправляем всегда из Москвы
-
-    def get_recipient_name(self):
-        return self.recipient_name
-
-    def get_recipient_phone(self):
-        return self.recipient_phone
-
-    def get_recipient_city_id(self):
-        return self.recipient_city_id
-
-    def get_recipient_address_street(self):
-        return self.recipient_address_street
-
-    def get_recipient_address_house(self):
-        return self.recipient_address_house
-
-    def get_recipient_address_flat(self):
-        return self.recipient_address_flat
-
-    def get_pvz_code(self):
-        return self.pvz_code
-
-    def get_shipping_tariff(self):
-        return self.shipping_tariff
-
-    def get_shipping_price(self):
-        return self.shipping_price
+    def get_comment(self):
+        return self.comment
 
 
 class OrderLine(AbstractOrderLine, models.Model):
@@ -80,4 +55,54 @@ class OrderLine(AbstractOrderLine, models.Model):
         return self.product.price
 
     def get_product_payment(self):
-        return self.product.price  # оплата при получении
+        if self.order.is_paid:
+            return 0
+        else:
+            return self.product.price  # оплата при получении
+
+
+
+client = Client('login', 'password')
+
+product = Product.objects.create(title=u'Шлакоблок', weight=1000, price=500)
+
+# заказ в Новосибирск с самовывозом
+Order.objects.create(
+    recipient_name=u'Иванов Иван Иванович',
+    recipient_phone=u'+7 (999) 999-99-99',
+    recipient_city_id=270,  # Новосибирск
+    shipping_tariff=137,  # самовывоз
+    is_paid=True
+)
+
+# заказ в Санкт-Петербург с курьерской доставкой и оплатой при получении
+order = Order.objects.create(
+    recipient_name=u'Иванов Иван Иванович',
+    recipient_phone=u'+7 (999) 999-99-99',
+    recipient_city_id=137,  # Санкт-Петербург
+    recipient_address_street=u'пр. Ленина',
+    recipient_address_house=1,
+    recipient_address_flat=1,
+    shipping_tariff=136,  # доставка курьером
+    comment=u'Позвонить за час'
+)
+
+OrderLine.objects.create(product=product, order=order)
+
+# создание заказа
+xml = client.create_order(order)
+dispatch_number = xml.xpath('//Order/@DispatcNumber')[0]
+
+# получение накладной к заказу
+with open(u'Заказ #%s.pdf' % order.get_number(), 'wb') as f:
+    data = client.get_orders_print([dispatch_number])
+    f.write(data)
+
+# отслеживание статуса доставки заказа
+client.get_orders_statuses([dispatch_number])
+
+# получение информации о заказе
+client.get_orders_info([dispatch_number])
+
+# удаление (отмена) заказа
+client.delete_order(order)
