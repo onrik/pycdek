@@ -91,7 +91,7 @@ OrderLine.objects.create(product=product, order=order)
 
 # создание заказа
 xml = client.create_order(order)
-dispatch_number = xml.xpath('//Order/@DispatcNumber')[0]
+dispatch_number = xml.xpath('//Order/@DispatchNumber')[0]
 
 # получение накладной к заказу
 with open(u'Заказ #%s.pdf' % order.get_number(), 'wb') as f:
