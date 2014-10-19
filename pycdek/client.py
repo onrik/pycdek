@@ -101,7 +101,7 @@ class Client(object):
     ORDER_INFO_URL = INTEGRATOR_URL + '/info_report.php'
     ORDER_PRINT_URL = INTEGRATOR_URL + '/orders_print.php'
     DELIVERY_POINTS_URL = INTEGRATOR_URL + '/pvzlist.php'
-    CALL_COURIES_URL = INTEGRATOR_URL + '/call_courier.php'
+    CALL_COURIER_URL = INTEGRATOR_URL + '/call_courier.php'
 
     def __init__(self, login, password):
         self._login = login
@@ -116,9 +116,7 @@ class Client(object):
         else:
             raise NotImplementedError('Unknown method "%s"' % method)
 
-        response = urllib2.urlopen(request).read()
-
-        return response
+        return urllib2.urlopen(request).read()
 
     @classmethod
     def _parse_xml(cls, data):
@@ -292,4 +290,4 @@ class Client(object):
 
         etree.SubElement(call_element, 'Address', Street=address_street, House=str(address_house), Flat=str(address_flat))
 
-        return self._exec_xml_request(self.CALL_COURIES_URL, call_courier_element)
+        return self._exec_xml_request(self.CALL_COURIER_URL, call_courier_element)
