@@ -13,7 +13,7 @@
 #### Примеры использования:
 
 ```python
-// получение пунктов самовывоза в Москве
+# получение пунктов самовывоза в Москве
 for point in c.get_delivery_points(44).xpath('Pvz'):
     print point.attrib['Code'], point.attrib['Address']
 ```
