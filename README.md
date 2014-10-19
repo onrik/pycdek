@@ -5,6 +5,15 @@
 
 Для получения логина и пароля необходимо [заключить договор](http://www.edostavka.ru/reglament.html) с транспортной компанией.
 
-####Установка
+####Установка:
 
     pip install git+https://github.com/onrik/pycdek.git#egg=pycdek
+
+
+#### Примеры использования:
+
+```python
+// получение пунктов самовывоза в Москве
+for point in c.get_delivery_points(44).xpath('Pvz'):
+    print point.attrib['Code'], point.attrib['Address']
+```
