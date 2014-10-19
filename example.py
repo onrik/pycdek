@@ -64,12 +64,12 @@ class OrderLine(AbstractOrderLine, models.Model):
 
 client = Client('login', 'password')
 
-product = Product.objects.create(title=u'Шлакоблок', weight=1000, price=500)
+product = Product.objects.create(title='Шлакоблок', weight=1000, price=500)
 
 # заказ в Новосибирск с самовывозом
 Order.objects.create(
-    recipient_name=u'Иванов Иван Иванович',
-    recipient_phone=u'+7 (999) 999-99-99',
+    recipient_name='Иванов Иван Иванович',
+    recipient_phone='+7 (999) 999-99-99',
     recipient_city_id=270,  # Новосибирск
     shipping_tariff=137,  # самовывоз
     is_paid=True
@@ -77,14 +77,14 @@ Order.objects.create(
 
 # заказ в Санкт-Петербург с курьерской доставкой и оплатой при получении
 order = Order.objects.create(
-    recipient_name=u'Иванов Иван Иванович',
-    recipient_phone=u'+7 (999) 999-99-99',
+    recipient_name='Иванов Иван Иванович',
+    recipient_phone='+7 (999) 999-99-99',
     recipient_city_id=137,  # Санкт-Петербург
-    recipient_address_street=u'пр. Ленина',
+    recipient_address_street='пр. Ленина',
     recipient_address_house=1,
     recipient_address_flat=1,
     shipping_tariff=136,  # доставка курьером
-    comment=u'Позвонить за час'
+    comment='Позвонить за час'
 )
 
 OrderLine.objects.create(product=product, order=order)
@@ -94,7 +94,7 @@ xml = client.create_order(order)
 dispatch_number = xml.xpath('//Order/@DispatchNumber')[0]
 
 # получение накладной к заказу
-with open(u'Заказ #%s.pdf' % order.get_number(), 'wb') as f:
+with open('Заказ #%s.pdf' % order.get_number(), 'wb') as f:
     data = client.get_orders_print([dispatch_number])
     f.write(data)
 
