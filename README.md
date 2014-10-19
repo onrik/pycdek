@@ -9,6 +9,9 @@
 
     pip install git+https://github.com/onrik/pycdek.git#egg=pycdek
 
+####Пример использования:
+Пример использования с Django моделями доступен в файле [example.py](example.py)
+
 
 #### Методы не требующие логина и пароля:
 
@@ -28,3 +31,4 @@ tariffs = [11, 16, 137]  # тарифы склад-дверь (доставка 
 print Client.get_shipping_cost(137, 44, tariffs, goods=[{'weight': 2, 'length': 100, 'width': 10, 'height': 20}])
     
 ```
+
