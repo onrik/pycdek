@@ -11,53 +11,53 @@ from lxml import etree
 class AbstractOrder(object):
     __metaclass__ = ABCMeta
 
-    @abstractmethod
     def get_number(self):
         """ Номер заказа """
-
+        return getattr(self, 'number')
+        
     @abstractmethod
     def get_products(self):
         """ Список товаров """
 
-    @abstractmethod
     def get_sender_city_id(self):
         """ ID города отправителя по базе СДЭК """
+        return getattr(self, 'sender_city_id')
 
-    @abstractmethod
     def get_recipient_name(self):
         """ Имя получателя """
+        return getattr(self, 'recipient_name')
 
-    @abstractmethod
     def get_recipient_phone(self):
         """ Номер телефона получателя """
+        return getattr(self, 'recipient_phone')
 
-    @abstractmethod
     def get_recipient_city_id(self):
         """ ID города получателя по базе СДЭК """
+        return getattr(self, 'recipient_city_id')
 
-    @abstractmethod
     def get_recipient_address_street(self):
         """ Улица адреса доставки """
+        return getattr(self, 'recipient_address_street')
 
-    @abstractmethod
     def get_recipient_address_house(self):
         """ Номер дома адреса доставки """
+        return getattr(self, 'recipient_address_house')
 
-    @abstractmethod
     def get_recipient_address_flat(self):
         """ Номер квартиры адреса доставки """
+        return getattr(self, 'recipient_address_flat')
 
-    @abstractmethod
     def get_pvz_code(self):
         """ Код пункта самовывоза """
+        return getattr(self, 'pvz_code')
 
-    @abstractmethod
     def get_shipping_tariff(self):
         """ ID тарифа доставки """
+        return getattr(self, 'shipping_tariff')
 
-    @abstractmethod
     def get_shipping_price(self):
         """ Стоимость доставки """
+        return getattr(self, 'shipping_price')
 
     def get_comment(self):
         """ Дополнительные инструкции для доставки """
@@ -79,9 +79,9 @@ class AbstractOrderLine(object):
     def get_product_weight(self):
         """ Вес единицы товара в граммах """
 
-    @abstractmethod
     def get_quantity(self):
         """ Количество """
+        return getattr(self, 'quantity')
 
     @abstractmethod
     def get_product_price(self):
