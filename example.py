@@ -11,7 +11,7 @@ class Product(models.Model):
 
 
 class Order(AbstractOrder, models.Model):
-    get_sender_city_id = 44  # Если отправляем всегда из Москвы
+    sender_city_id = 44  # Если отправляем всегда из Москвы
     recipient_name = models.CharField('Имя получателя', max_length=100)
     recipient_phone = models.CharField('Телефон', max_length=20)
     recipient_city_id = models.PositiveIntegerField()
@@ -90,8 +90,8 @@ order = Order.objects.create(
 OrderLine.objects.create(product=product, order=order)
 
 # создание заказа
-xml = client.create_order(order)
-dispatch_number = xml.xpath('//Order/@DispatchNumber')[0]
+response = client.create_order(order)
+dispatch_number = response['DispatchNumber']
 
 # получение накладной к заказу
 with open('Заказ #%s.pdf' % order.get_number(), 'wb') as f:

@@ -102,6 +102,7 @@ class Client(object):
     ORDER_PRINT_URL = INTEGRATOR_URL + '/orders_print.php'
     DELIVERY_POINTS_URL = INTEGRATOR_URL + '/pvzlist.php'
     CALL_COURIER_URL = INTEGRATOR_URL + '/call_courier.php'
+    array_tags = set(['State', 'Delay', 'Good', 'Fail', 'Item', 'Package'])
 
     def __init__(self, login, password):
         self._login = login
@@ -128,6 +129,19 @@ class Client(object):
             return xml
 
     @classmethod
+    def _xml_to_dict(cls, xml):
+        result = dict(xml.attrib)
+
+        for child in xml.getchildren():
+            if child.tag in cls.array_tags:
+                result[child.tag] = result.get(child.tag, [])
+                result[child.tag].append(cls._xml_to_dict(child))
+            else:
+                result[child.tag] = cls._xml_to_dict(child)
+
+        return result
+
+    @classmethod
     def get_shipping_cost(cls, sender_city_id, receiver_city_id, tariffs, goods):
         """
         Возвращает информацию о стоимости и сроках доставки
@@ -135,8 +149,8 @@ class Client(object):
         :param sender_city_id: ID города отправителя по базе СДЭК
         :param receiver_city_id: ID города получателя по базе СДЭК
         :param goods: список товаров
+        :returns dict
         """
-        date = datetime.datetime.now().isoformat()
         params = {
             'version': '1.0',
             'dateExecute': datetime.date.today().isoformat(),
@@ -144,7 +158,6 @@ class Client(object):
             'receiverCityId': receiver_city_id,
             'tariffList': [{'priority': -i, 'id': tariff} for i, tariff in enumerate(tariffs, 1)],
             'goods': goods,
-            'date': date,
         }
 
         return json.loads(cls._exec_request(cls.CALCULATOR_URL, json.dumps(params), 'POST'))
@@ -154,9 +167,12 @@ class Client(object):
         """
         Возвращает списков пунктов самовывоза для указанного города, либо для всех если город не указан
         :param city_id: ID города по базе СДЭК
+        :returns list
         """
         response = cls._exec_request(cls.DELIVERY_POINTS_URL, {'cityid': city_id} if city_id else {})
-        return cls._parse_xml(response)
+        xml = cls._parse_xml(response)
+
+        return [cls._xml_to_dict(point) for point in xml.xpath('//Pvz')]
 
     def _exec_xml_request(self, url, xml_element):
         date = datetime.datetime.now().isoformat()
@@ -175,6 +191,7 @@ class Client(object):
         """
         Создать заказ
         :param order: экземпляр класса AbstractOrder
+        :returns dict
         """
         delivery_request_element = etree.Element('DeliveryRequest', Number=str(order.get_number()), OrderCount='1')
 
@@ -185,7 +202,7 @@ class Client(object):
         order_element.attrib['RecipientName'] = order.get_recipient_name()
         order_element.attrib['TariffTypeCode'] = str(order.get_shipping_tariff())
         order_element.attrib['DeliveryRecipientCost'] = str(order.get_shipping_price())
-        order_element.attrib['Phone'] = order.get_recipient_phone()
+        order_element.attrib['Phone'] = str(order.get_recipient_phone())
         order_element.attrib['Comment'] = order.get_comment()
 
         address_element = etree.SubElement(order_element, 'Address')
@@ -210,52 +227,59 @@ class Client(object):
 
         package_element.attrib['Weight'] = str(total_weight)
 
-        return self._exec_xml_request(self.CREATE_ORDER_URL, delivery_request_element)
+        xml = self._exec_xml_request(self.CREATE_ORDER_URL, delivery_request_element)
+        return self._xml_to_dict(xml.xpath('//Order')[0])
 
     def delete_order(self, order):
         """
         Удалить заказ
         :param order: экземпляр класса AbstractOrder
+        :returns dict
         """
         delete_request_element = etree.Element('DeleteRequest', Number=str(order.get_number()), OrderCount='1')
         etree.SubElement(delete_request_element, 'Order', Number=str(order.get_number()))
 
-        return self._exec_xml_request(self.DELETE_ORDER_URL, delete_request_element)
+        xml = self._exec_xml_request(self.DELETE_ORDER_URL, delete_request_element)
+        return self._xml_to_dict(xml.xpath('//DeleteRequest')[0])
 
     def get_orders_info(self, orders_dispatch_numbers):
         """
         Информация по заказам
         :param orders_dispatch_numbers: список номеров отправлений СДЭК
+        :returns list
         """
         info_request_element = etree.Element('InfoRequest')
         for dispatch_number in orders_dispatch_numbers:
-            etree.SubElement(info_request_element, 'Order', DispatchNumber=dispatch_number)
+            etree.SubElement(info_request_element, 'Order', DispatchNumber=str(dispatch_number))
 
-        return self._exec_xml_request(self.ORDER_INFO_URL, info_request_element)
+        xml = self._exec_xml_request(self.ORDER_INFO_URL, info_request_element)
+        return [self._xml_to_dict(order) for order in xml.xpath('//Order')]
 
     def get_orders_statuses(self, orders_dispatch_numbers, show_history=True):
         """
-        Статусы заказов
+        Статусы заказовx
         :param orders_dispatch_numbers: список номеров отправлений СДЭК
         :param show_history: получать историю статусов
+        :returns list
         """
         status_report_element = etree.Element('StatusReport', ShowHistory=str(int(show_history)))
         for dispatch_number in orders_dispatch_numbers:
-            etree.SubElement(status_report_element, 'Order', DispatchNumber=dispatch_number)
+            etree.SubElement(status_report_element, 'Order', DispatchNumber=str(dispatch_number))
 
-        return self._exec_xml_request(self.ORDER_STATUS_URL, status_report_element)
+        xml = self._exec_xml_request(self.ORDER_STATUS_URL, status_report_element)
+        return [self._xml_to_dict(order) for order in xml.xpath('//Order')]
 
-    def get_orders_print(self, orders_dispatch_numbers, count=1):
+    def get_orders_print(self, orders_dispatch_numbers, copy_count=1):
         """
         Печатная форма квитанции к заказу
         :param orders_dispatch_numbers: список номеров отправлений СДЭК
-        :param count: количество копий
+        :param copy_count: количество копий
         """
         date = datetime.datetime.now().isoformat()
-        orders_print_element = etree.Element('OrdersPrint', OrderCount=str(len(orders_dispatch_numbers)), CopyCount=str(count), Date=date, Account=self._login, Secure=self._make_secure(date))
+        orders_print_element = etree.Element('OrdersPrint', OrderCount=str(len(orders_dispatch_numbers)), CopyCount=str(copy_count), Date=date, Account=self._login, Secure=self._make_secure(date))
 
         for dispatch_number in orders_dispatch_numbers:
-            etree.SubElement(orders_print_element, 'Order', DispatchNumber=dispatch_number)
+            etree.SubElement(orders_print_element, 'Order', DispatchNumber=str(dispatch_number))
 
         request = '<?xml version="1.0" encoding="UTF-8" ?>' + etree.tostring(orders_print_element, encoding="UTF-8")
         response = self._exec_request(self.ORDER_PRINT_URL, 'xml_request=' + request, method='POST')
@@ -275,11 +299,12 @@ class Client(object):
         :param comment: комментарий
         :param lunch_begin: время начала обеда
         :param lunch_end: время окончания обеда
+        :returns bool
         """
         call_courier_element = etree.Element('CallCourier', CallCount='1')
         call_element = etree.SubElement(call_courier_element, 'Call', Date=date.isoformat(), TimeBeg=time_begin.isoformat(), TimeEnd=time_end.isoformat())
         call_element.attrib['SendCityCode'] = str(sender_city_id)
-        call_element.attrib['SendPhone'] = sender_phone
+        call_element.attrib['SendPhone'] = str(sender_phone)
         call_element.attrib['SenderName'] = sender_name
         call_element.attrib['Weight'] = str(weight)
         call_element.attrib['Comment'] = comment
@@ -290,4 +315,9 @@ class Client(object):
 
         etree.SubElement(call_element, 'Address', Street=address_street, House=str(address_house), Flat=str(address_flat))
 
-        return self._exec_xml_request(self.CALL_COURIER_URL, call_courier_element)
+        try:
+            self._exec_xml_request(self.CALL_COURIER_URL, call_courier_element)
+        except urllib2.HTTPError:
+            return False
+        else:
+            return True
