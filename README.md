@@ -3,24 +3,19 @@
 
 База городов, список тарифов и докуентация API доступны по ссылке: http://www.edostavka.ru/website/edostavka/upload/custom/files/CDEK_integrator.zip
 
-Для получения логина и пароля необходимо [заключить договор](http://www.edostavka.ru/reglament.html) с транспортной компанией.
-
 ####Установка:
 
     pip install git+https://github.com/onrik/pycdek.git#egg=pycdek
 
-####Пример использования:
-Пример использования с Django моделями доступен в файле [example.py](example.py)
-
-
-#### Методы не требующие логина и пароля:
+#### Пример использования:
+Методы не требующие логина и пароля:
 
 ```python
 from pycdek.client import Client
 
 # получение пунктов самовывоза в Москве
-for point in Client.get_delivery_points(44).xpath('Pvz'):
-    print point.attrib['Code'], point.attrib['Address']
+for point in Client.get_delivery_points(44):
+    print point['Code'], point['Address']
     
 # расчет доставки Москва - Санкт-Петербург одной посылки весом 1кг и габаритами (см) 50x10x20
 tariffs = [5, 10, 15, 62, 63, 136] #  тарифы склад-склад (самовывоз)
@@ -32,3 +27,4 @@ print Client.get_shipping_cost(137, 44, tariffs, goods=[{'weight': 2, 'length': 
     
 ```
 
+Пример использования методов, требующих логин и пароль с использованием Django моделей, доступен в файле [example.py](example.py) (Для получения логина и пароля необходимо [заключить договор](http://www.edostavka.ru/reglament.html) с транспортной компанией.)
