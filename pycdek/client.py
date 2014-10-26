@@ -322,9 +322,9 @@ class Client(object):
 
         print self._xml_to_string(call_courier_element)
 
-        # try:
-        self._exec_xml_request(self.CALL_COURIER_URL, call_courier_element)
-        # except urllib2.HTTPError:
-        #     return False
-        # else:
-            # return True
+        try:
+            self._exec_xml_request(self.CALL_COURIER_URL, call_courier_element)
+        except urllib2.HTTPError:
+            return False
+        else:
+            return True
