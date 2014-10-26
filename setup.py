@@ -22,7 +22,4 @@ setup(
         'Programming Language :: Python',
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
-    install_requires=[
-        'lxml',
-    ],
 )

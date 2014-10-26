@@ -3,9 +3,10 @@ import json
 import hashlib
 import datetime
 import urllib2
+import StringIO
 from urllib import urlencode
+from xml.etree import ElementTree
 from abc import ABCMeta, abstractmethod
-from lxml import etree
 
 
 class AbstractOrder(object):
@@ -102,7 +103,7 @@ class Client(object):
     ORDER_PRINT_URL = INTEGRATOR_URL + '/orders_print.php'
     DELIVERY_POINTS_URL = INTEGRATOR_URL + '/pvzlist.php'
     CALL_COURIER_URL = INTEGRATOR_URL + '/call_courier.php'
-    array_tags = set(['State', 'Delay', 'Good', 'Fail', 'Item', 'Package'])
+    array_tags = {'State', 'Delay', 'Good', 'Fail', 'Item', 'Package'}
 
     def __init__(self, login, password):
         self._login = login
@@ -122,15 +123,15 @@ class Client(object):
     @classmethod
     def _parse_xml(cls, data):
         try:
-            xml = etree.fromstring(data)
-        except etree.XMLSyntaxError:
+            xml = ElementTree.fromstring(data)
+        except ElementTree.ParseError:
             pass
         else:
             return xml
 
     @classmethod
     def _xml_to_dict(cls, xml):
-        result = dict(xml.attrib)
+        result = xml.attrib
 
         for child in xml.getchildren():
             if child.tag in cls.array_tags:
@@ -172,16 +173,21 @@ class Client(object):
         response = cls._exec_request(cls.DELIVERY_POINTS_URL, {'cityid': city_id} if city_id else {})
         xml = cls._parse_xml(response)
 
-        return [cls._xml_to_dict(point) for point in xml.xpath('//Pvz')]
+        return [cls._xml_to_dict(point) for point in xml.findall('Pvz')]
+
+    def _xml_to_string(self, xml):
+        buff = StringIO.StringIO()
+        ElementTree.ElementTree(xml).write(buff, encoding='UTF-8', xml_declaration=False)
+
+        return '<?xml version="1.0" encoding="UTF-8" ?>' + buff.getvalue()
 
     def _exec_xml_request(self, url, xml_element):
         date = datetime.datetime.now().isoformat()
         xml_element.attrib['Date'] = date
         xml_element.attrib['Account'] = self._login
         xml_element.attrib['Secure'] = self._make_secure(date)
-        xml_request = '<?xml version="1.0" encoding="UTF-8" ?>' + etree.tostring(xml_element, encoding="UTF-8")
 
-        response = self._exec_request(url, urlencode({'xml_request': xml_request}), method='POST')
+        response = self._exec_request(url, urlencode({'xml_request': self._xml_to_string(xml_element)}), method='POST')
         return self._parse_xml(response)
 
     def _make_secure(self, date):
@@ -193,9 +199,9 @@ class Client(object):
         :param order: экземпляр класса AbstractOrder
         :returns dict
         """
-        delivery_request_element = etree.Element('DeliveryRequest', Number=str(order.get_number()), OrderCount='1')
+        delivery_request_element = ElementTree.Element('DeliveryRequest', Number=str(order.get_number()), OrderCount='1')
 
-        order_element = etree.SubElement(delivery_request_element, 'Order')
+        order_element = ElementTree.SubElement(delivery_request_element, 'Order')
         order_element.attrib['Number'] = str(order.get_number())
         order_element.attrib['SendCityCode'] = str(order.get_sender_city_id())
         order_element.attrib['RecCityCode'] = str(order.get_recipient_city_id())
@@ -205,7 +211,7 @@ class Client(object):
         order_element.attrib['Phone'] = str(order.get_recipient_phone())
         order_element.attrib['Comment'] = order.get_comment()
 
-        address_element = etree.SubElement(order_element, 'Address')
+        address_element = ElementTree.SubElement(order_element, 'Address')
         if order.get_pvz_code():
             address_element.attrib['PvzCode'] = order.get_pvz_code()
         else:
@@ -213,11 +219,11 @@ class Client(object):
             address_element.attrib['House'] = str(order.get_recipient_address_house())
             address_element.attrib['Flat'] = str(order.get_recipient_address_flat())
 
-        package_element = etree.SubElement(order_element, 'Package', Number='%s1' % order.get_number(), BarCode='%s1' % order.get_number())
+        package_element = ElementTree.SubElement(order_element, 'Package', Number='%s1' % order.get_number(), BarCode='%s1' % order.get_number())
         total_weight = 0
 
         for product in order.get_products():
-            item_element = etree.SubElement(package_element, 'Item', Amount=str(product.get_quantity()))
+            item_element = ElementTree.SubElement(package_element, 'Item', Amount=str(product.get_quantity()))
             item_element.attrib['Weight'] = str(product.get_product_weight())
             item_element.attrib['WareKey'] = str(product.get_product_upc())[:30]
             item_element.attrib['Cost'] = str(product.get_product_price())
@@ -228,7 +234,7 @@ class Client(object):
         package_element.attrib['Weight'] = str(total_weight)
 
         xml = self._exec_xml_request(self.CREATE_ORDER_URL, delivery_request_element)
-        return self._xml_to_dict(xml.xpath('//Order')[0])
+        return self._xml_to_dict(xml.find('Order'))
 
     def delete_order(self, order):
         """
@@ -236,11 +242,11 @@ class Client(object):
         :param order: экземпляр класса AbstractOrder
         :returns dict
         """
-        delete_request_element = etree.Element('DeleteRequest', Number=str(order.get_number()), OrderCount='1')
-        etree.SubElement(delete_request_element, 'Order', Number=str(order.get_number()))
+        delete_request_element = ElementTree.Element('DeleteRequest', Number=str(order.get_number()), OrderCount='1')
+        ElementTree.SubElement(delete_request_element, 'Order', Number=str(order.get_number()))
 
         xml = self._exec_xml_request(self.DELETE_ORDER_URL, delete_request_element)
-        return self._xml_to_dict(xml.xpath('//DeleteRequest')[0])
+        return self._xml_to_dict(xml.find('DeleteRequest'))
 
     def get_orders_info(self, orders_dispatch_numbers):
         """
@@ -248,12 +254,12 @@ class Client(object):
         :param orders_dispatch_numbers: список номеров отправлений СДЭК
         :returns list
         """
-        info_request_element = etree.Element('InfoRequest')
+        info_request = ElementTree.Element('InfoRequest')
         for dispatch_number in orders_dispatch_numbers:
-            etree.SubElement(info_request_element, 'Order', DispatchNumber=str(dispatch_number))
+            ElementTree.SubElement(info_request, 'Order', DispatchNumber=str(dispatch_number))
 
-        xml = self._exec_xml_request(self.ORDER_INFO_URL, info_request_element)
-        return [self._xml_to_dict(order) for order in xml.xpath('//Order')]
+        xml = self._exec_xml_request(self.ORDER_INFO_URL, info_request)
+        return [self._xml_to_dict(order) for order in xml.findall('Order')]
 
     def get_orders_statuses(self, orders_dispatch_numbers, show_history=True):
         """
@@ -262,12 +268,12 @@ class Client(object):
         :param show_history: получать историю статусов
         :returns list
         """
-        status_report_element = etree.Element('StatusReport', ShowHistory=str(int(show_history)))
+        status_report_element = ElementTree.Element('StatusReport', ShowHistory=str(int(show_history)))
         for dispatch_number in orders_dispatch_numbers:
-            etree.SubElement(status_report_element, 'Order', DispatchNumber=str(dispatch_number))
+            ElementTree.SubElement(status_report_element, 'Order', DispatchNumber=str(dispatch_number))
 
         xml = self._exec_xml_request(self.ORDER_STATUS_URL, status_report_element)
-        return [self._xml_to_dict(order) for order in xml.xpath('//Order')]
+        return [self._xml_to_dict(order) for order in xml.findall('Order')]
 
     def get_orders_print(self, orders_dispatch_numbers, copy_count=1):
         """
@@ -276,13 +282,12 @@ class Client(object):
         :param copy_count: количество копий
         """
         date = datetime.datetime.now().isoformat()
-        orders_print_element = etree.Element('OrdersPrint', OrderCount=str(len(orders_dispatch_numbers)), CopyCount=str(copy_count), Date=date, Account=self._login, Secure=self._make_secure(date))
+        orders_print_element = ElementTree.Element('OrdersPrint', OrderCount=str(len(orders_dispatch_numbers)), CopyCount=str(copy_count), Date=date, Account=self._login, Secure=self._make_secure(date))
 
         for dispatch_number in orders_dispatch_numbers:
-            etree.SubElement(orders_print_element, 'Order', DispatchNumber=str(dispatch_number))
+            ElementTree.SubElement(orders_print_element, 'Order', DispatchNumber=str(dispatch_number))
 
-        request = '<?xml version="1.0" encoding="UTF-8" ?>' + etree.tostring(orders_print_element, encoding="UTF-8")
-        response = self._exec_request(self.ORDER_PRINT_URL, 'xml_request=' + request, method='POST')
+        response = self._exec_request(self.ORDER_PRINT_URL, urlencode({'xml_request': self._xml_to_string(orders_print_element)}), method='POST')
 
         return response if not response.startswith('<?xml') else None
 
@@ -301,8 +306,8 @@ class Client(object):
         :param lunch_end: время окончания обеда
         :returns bool
         """
-        call_courier_element = etree.Element('CallCourier', CallCount='1')
-        call_element = etree.SubElement(call_courier_element, 'Call', Date=date.isoformat(), TimeBeg=time_begin.isoformat(), TimeEnd=time_end.isoformat())
+        call_courier_element = ElementTree.Element('CallCourier', CallCount='1')
+        call_element = ElementTree.SubElement(call_courier_element, 'Call', Date=date.isoformat(), TimeBeg=time_begin.isoformat(), TimeEnd=time_end.isoformat())
         call_element.attrib['SendCityCode'] = str(sender_city_id)
         call_element.attrib['SendPhone'] = str(sender_phone)
         call_element.attrib['SenderName'] = sender_name
@@ -313,11 +318,13 @@ class Client(object):
         if lunch_end:
             call_element.attrib['LunchEnd'] = lunch_end.isoformat()
 
-        etree.SubElement(call_element, 'Address', Street=address_street, House=str(address_house), Flat=str(address_flat))
+        ElementTree.SubElement(call_element, 'Address', Street=address_street, House=str(address_house), Flat=str(address_flat))
 
-        try:
-            self._exec_xml_request(self.CALL_COURIER_URL, call_courier_element)
-        except urllib2.HTTPError:
-            return False
-        else:
-            return True
+        print self._xml_to_string(call_courier_element)
+
+        # try:
+        self._exec_xml_request(self.CALL_COURIER_URL, call_courier_element)
+        # except urllib2.HTTPError:
+        #     return False
+        # else:
+            # return True

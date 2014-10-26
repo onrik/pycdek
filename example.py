@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 from django.db import models
-from pycdek.client import AbstractOrder, AbstractOrderLine, Client
+from pycdek import AbstractOrder, AbstractOrderLine, Client
 
 
 class Product(models.Model):
@@ -59,7 +59,6 @@ class OrderLine(AbstractOrderLine, models.Model):
             return 0
         else:
             return self.product.price  # оплата при получении
-
 
 
 client = Client('login', 'password')

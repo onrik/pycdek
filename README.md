@@ -11,7 +11,7 @@
 Методы не требующие логина и пароля:
 
 ```python
-from pycdek.client import Client
+from pycdek import Client
 
 # получение пунктов самовывоза в Москве
 for point in Client.get_delivery_points(44):
