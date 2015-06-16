@@ -12,9 +12,11 @@ class Product(models.Model):
 
 class Order(AbstractOrder, models.Model):
     sender_city_id = 44  # Если отправляем всегда из Москвы
+    sender_city_postcode = models.PositiveIntegerField()
     recipient_name = models.CharField('Имя получателя', max_length=100)
     recipient_phone = models.CharField('Телефон', max_length=20)
     recipient_city_id = models.PositiveIntegerField()
+    recipient_city_postcode = models.PositiveIntegerField()
     recipient_address_street = models.CharField('Улица', max_length=100, null=True, blank=True)
     recipient_address_house = models.PositiveIntegerField('Номер дома', max_length=100, null=True, blank=True)
     recipient_address_flat = models.PositiveIntegerField('Номер квартиры', max_length=100, null=True, blank=True)
@@ -70,6 +72,7 @@ Order.objects.create(
     recipient_name='Иванов Иван Иванович',
     recipient_phone='+7 (999) 999-99-99',
     recipient_city_id=270,  # Новосибирск
+    recipient_city_postcode=630066,  # Новосибирск
     shipping_tariff=137,  # самовывоз
     is_paid=True
 )
@@ -79,6 +82,7 @@ order = Order.objects.create(
     recipient_name='Иванов Иван Иванович',
     recipient_phone='+7 (999) 999-99-99',
     recipient_city_id=137,  # Санкт-Петербург
+    recipient_city_postcode=198261,  # Санкт-Петербург
     recipient_address_street='пр. Ленина',
     recipient_address_house=1,
     recipient_address_flat=1,
