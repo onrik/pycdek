@@ -7,7 +7,7 @@
 
 ####Установка:
 
-    pip install git+https://github.com/onrik/pycdek.git#egg=pycdek
+    pip install pycdek
 
 #### Пример использования:
 Методы не требующие логина и пароля:
