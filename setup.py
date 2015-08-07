@@ -4,6 +4,7 @@ from pycdek import __version__
 setup(
     name='pycdek',
     url='http://github.com/onrik/pycdek/',
+    download_url='https://github.com/onrik/pycdek/tarball/master',
     version=__version__,
     description='Client for CDEK API',
     author='Andrey',
@@ -20,6 +21,7 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
+        'Programming Language :: Python :: 2'
         'Topic :: Software Development :: Libraries :: Python Modules',
     ],
 )
