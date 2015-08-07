@@ -24,6 +24,10 @@ class AbstractOrder(object):
         """ ID города отправителя по базе СДЭК """
         return getattr(self, 'sender_city_id')
 
+    def get_sender_postcode(self):
+        """ Почтовый индекс отправителя """
+        return getattr(self, 'sender_city_postcode')
+
     def get_recipient_name(self):
         """ Имя получателя """
         return getattr(self, 'recipient_name')
@@ -35,6 +39,10 @@ class AbstractOrder(object):
     def get_recipient_city_id(self):
         """ ID города получателя по базе СДЭК """
         return getattr(self, 'recipient_city_id')
+
+    def get_recipient_postcode(self):
+        """ Почтовый индекс получателя """
+        return getattr(self, 'recipient_city_postcode')
 
     def get_recipient_address_street(self):
         """ Улица адреса доставки """
@@ -143,20 +151,23 @@ class Client(object):
         return result
 
     @classmethod
-    def get_shipping_cost(cls, sender_city_id, receiver_city_id, tariffs, goods):
+    def get_shipping_cost(cls, sender_city_data, recipient_city_data, tariffs, goods):
         """
         Возвращает информацию о стоимости и сроках доставки
+        Для отправителя и получателя обязателен один из параметров: *_city_id или *_city_postcode внутри *_city_data
+        :param sender_city_data: {id: '', postcode: ''} ID и/или почтовый индекс города отправителя по базе СДЭК
+        :param recipient_city_data: {id: '', postcode: ''} ID и/или почтовый индекс города получателя по базе СДЭК
         :param tariffs: список тарифов
-        :param sender_city_id: ID города отправителя по базе СДЭК
-        :param receiver_city_id: ID города получателя по базе СДЭК
         :param goods: список товаров
         :returns dict
         """
         params = {
             'version': '1.0',
             'dateExecute': datetime.date.today().isoformat(),
-            'senderCityId': sender_city_id,
-            'receiverCityId': receiver_city_id,
+            'senderCityId': sender_city_data.get('id'),
+            'receiverCityId': recipient_city_data.get('id'),
+            'senderCityPostCode': sender_city_data.get('postcode'),
+            'receiverCityPostCode': recipient_city_data.get('postcode'),
             'tariffList': [{'priority': -i, 'id': tariff} for i, tariff in enumerate(tariffs, 1)],
             'goods': goods,
         }
@@ -204,7 +215,9 @@ class Client(object):
         order_element = ElementTree.SubElement(delivery_request_element, 'Order')
         order_element.attrib['Number'] = str(order.get_number())
         order_element.attrib['SendCityCode'] = str(order.get_sender_city_id())
+        order_element.attrib['SendCityPostCode'] = str(order.get_sender_postcode())
         order_element.attrib['RecCityCode'] = str(order.get_recipient_city_id())
+        order_element.attrib['RecCityPostCode'] = str(order.get_recipient_postcode())
         order_element.attrib['RecipientName'] = order.get_recipient_name()
         order_element.attrib['TariffTypeCode'] = str(order.get_shipping_tariff())
         order_element.attrib['DeliveryRecipientCost'] = str(order.get_shipping_price())
