@@ -26,7 +26,7 @@ class AbstractOrder(object):
 
     def get_sender_postcode(self):
         """ Почтовый индекс отправителя """
-        return getattr(self, 'sender_city_postcode')
+        return getattr(self, 'sender_city_postcode', '')
 
     def get_recipient_name(self):
         """ Имя получателя """
@@ -42,7 +42,7 @@ class AbstractOrder(object):
 
     def get_recipient_postcode(self):
         """ Почтовый индекс получателя """
-        return getattr(self, 'recipient_city_postcode')
+        return getattr(self, 'recipient_city_postcode', '')
 
     def get_recipient_address_street(self):
         """ Улица адреса доставки """
@@ -151,12 +151,12 @@ class Client(object):
         return result
 
     @classmethod
-    def get_shipping_cost(cls, sender_city_data, recipient_city_data, tariffs, goods):
+    def get_shipping_cost(cls, sender_city_id, receiver_city_id, tariffs, goods):
         """
         Возвращает информацию о стоимости и сроках доставки
         Для отправителя и получателя обязателен один из параметров: *_city_id или *_city_postcode внутри *_city_data
-        :param sender_city_data: {id: '', postcode: ''} ID и/или почтовый индекс города отправителя по базе СДЭК
-        :param recipient_city_data: {id: '', postcode: ''} ID и/или почтовый индекс города получателя по базе СДЭК
+        :param sender_city_data: ID города отправителя по базе СДЭК
+        :param recipient_city_data: ID города получателя по базе СДЭК
         :param tariffs: список тарифов
         :param goods: список товаров
         :returns dict
@@ -164,10 +164,8 @@ class Client(object):
         params = {
             'version': '1.0',
             'dateExecute': datetime.date.today().isoformat(),
-            'senderCityId': sender_city_data.get('id'),
-            'receiverCityId': recipient_city_data.get('id'),
-            'senderCityPostCode': sender_city_data.get('postcode'),
-            'receiverCityPostCode': recipient_city_data.get('postcode'),
+            'senderCityId': sender_city_id,
+            'receiverCityId': receiver_city_id,
             'tariffList': [{'priority': -i, 'id': tariff} for i, tariff in enumerate(tariffs, 1)],
             'goods': goods,
         }
@@ -332,8 +330,6 @@ class Client(object):
             call_element.attrib['LunchEnd'] = lunch_end.isoformat()
 
         ElementTree.SubElement(call_element, 'Address', Street=address_street, House=str(address_house), Flat=str(address_flat))
-
-        print self._xml_to_string(call_courier_element)
 
         try:
             self._exec_xml_request(self.CALL_COURIER_URL, call_courier_element)
